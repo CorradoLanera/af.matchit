@@ -1,0 +1,132 @@
+---
+title: "MatchIt vaccine issue"
+author: "AF & CL"
+format: html 
+self-contained: true
+editor: visual
+---
+
+## Setup
+
+```{r, setup}
+
+library(here)
+library(MatchIt)
+library(tidyverse)
+library(janitor)
+
+load(here("vaccine_db.rda"))
+```
+
+## Errored script `{rpart}`
+
+m_rpart \<- matchit(
+
+vaccine \~ race + home_oxygen_use + gender + current_smoking +
+
+diabetes_mellitus + asthma_copd + chd + immunosuppression +
+
+liver_kidney  + asplenia + other_diseases + age_year +
+
+timing_onset_influenza_days, data = vaccine_db,
+
+distance = "rpart"
+
+)
+
+```{r, rpart}
+#| error: true
+
+m_rpart <- matchit(
+  vaccine ~ race + home_oxygen_use + gender + current_smoking + 
+    diabetes_mellitus + asthma_copd + chd + immunosuppression + 
+    liver_kidney  + asplenia + other_diseases + age_year + 
+    timing_onset_influenza_days, data = vaccine_db, 
+    distance = "rpart"
+)
+```
+
+> `Error in predict(res, type = "prob")[, "1"] : subscript out of bounds` \
+> ... significa che il risultato non ha l' elemento `"1"`
+
+Contolliamo con il browser debug
+
+```{r}
+#| error: true
+
+debugonce(matchit)
+m_rpart <- matchit(
+  vaccine ~ race + home_oxygen_use + gender + current_smoking + 
+    diabetes_mellitus + asthma_copd + chd + immunosuppression + 
+    liver_kidney  + asplenia + other_diseases + age_year + 
+    timing_onset_influenza_days, data = vaccine_db, 
+    distance = "rpart"
+)
+```
+
+Facendo un passaggio alla volta, l' errore viene dato all' istruzione:
+
+`debug: dist.out <- do.call(fn1, distance.options, quote = TRUE)`
+
+entriamo dentro a quella istruzione:
+
+```{r}
+#| error: true
+
+debugonce(matchit)
+m_rpart <- matchit(
+  vaccine ~ race + home_oxygen_use + gender + current_smoking + 
+    diabetes_mellitus + asthma_copd + chd + immunosuppression + 
+    liver_kidney  + asplenia + other_diseases + age_year + 
+    timing_onset_influenza_days, data = vaccine_db, 
+    distance = "rpart"
+)
+```
+
+Viene applicato la funzione `distance2rpart` alla lista di argomenti (formula, data, verbose, estimand, link) il che sembra tutto regolare. Entrando all' interno della chiamata vediamo che eseguendo il pezzo: `predict(res, type = "prob")` , le colonne risultanti si chiamano "NO" e "YES", da cui, chiaramente, sottosolezionare per la colonna "1" (i.e.: `[, "1"]`) da errore perchè quella colonna non c'è.
+
+La soluzione sta quindi nel rinominare la variabile di outcome in modo che sia una zero/uno:
+
+```{r}
+vaccine_db_zerouno <- vaccine_db |> 
+  mutate(vaccine = if_else(vaccine == "Yes", 1, 0))
+
+m_rpart_zerouno <- matchit(
+  vaccine ~ race + home_oxygen_use + gender + current_smoking + 
+    diabetes_mellitus + asthma_copd + chd + immunosuppression + 
+    liver_kidney  + asplenia + other_diseases + age_year + 
+    timing_onset_influenza_days, data = vaccine_db_zerouno, 
+    distance = "rpart"
+)
+summary(m_rpart_zerouno)
+```
+
+## Errored script `{randomforest}`
+
+Problema con errore differente da il randomforest
+
+```{r}
+#| error: true
+m_rf <- matchit(
+  vaccine ~ race + home_oxygen_use + gender + current_smoking + 
+    diabetes_mellitus + asthma_copd + chd + immunosuppression + 
+    liver_kidney  + asplenia + other_diseases + age_year + 
+    timing_onset_influenza_days, data = vaccine_db, 
+    distance = "randomforest"
+)
+```
+
+Anche se forse potrebbe essere analogo... ignorantemente, proviamo (in effetti se cerca 1 e 0 e trova solo No e Yes, è facile che dia degli NA... che sono riportati nell'errore... quindi é vero che è una prova un po alla cieca, ma non é nemmeno molto priva di senso... ed essendo anche di rapida computaizone...proviamoci :-)
+
+```{r}
+m_rf_zerouno <- matchit(
+  vaccine ~ race + home_oxygen_use + gender + current_smoking + 
+    diabetes_mellitus + asthma_copd + chd + immunosuppression + 
+    liver_kidney  + asplenia + other_diseases + age_year + 
+    timing_onset_influenza_days, data = vaccine_db_zerouno, 
+    distance = "randomforest"
+)
+summary(m_rf_zerouno)
+```
+
+URRÀÀÀÀÀÀ!!

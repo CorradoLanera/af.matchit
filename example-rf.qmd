@@ -38,7 +38,7 @@ m.out2
 summary(m.out2, un = TRUE)
 ```
 
-## Documentazione 
+## Documentazione
 
 > the distance measure to be used. Can be either the name of a method of estimating propensity scores (e.g., "glm"), the name of a method of computing a distance matrix from the covariates (e.g., "mahalanobis"), a vector of already-computed distance measures, or a matrix of pairwise distances. See distance for allowable options. The default is "glm" for propensity scores estimated with logistic regression using glm(). Ignored for some methods; see individual methods pages for information on whether and how the distance measure is used.
 
